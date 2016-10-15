@@ -179,6 +179,16 @@ private final int left;*/
 		}
 		return p;
 	}
+	private static ArrayList<Peer> getRUPeer(ArrayList<Peer> peerlist) {
+		ArrayList<Peer> RUPeer = new ArrayList<Peer>();
+		String peerIdString;
+		for (Peer p: peerlist){
+			peerIdString = p.getStringPeerId();
+			if(peerIdString.charAt(0)=='R' && peerIdString.charAt(1)=='U')
+				RUPeer.add(p);
+		}
+		return RUPeer;		
+	}
 
 	public static byte[] getRequest(TorrentInfo tInfo) throws IOException, URISyntaxException {
 		byte[] response;
