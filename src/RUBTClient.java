@@ -223,14 +223,14 @@ private final int left;*/
 	private static byte[] generatePeerId() 
 	{
 		final byte[] peerId = new byte[20];
-		LOGGER.info("Adding RU to ID" );
-		peerId[0] = 'R';
-		peerId[1] = 'U';
+		//LOGGER.info("Adding RU to ID" );
+		//peerId[0] = 'R';
+		//peerId[1] = 'U';
 		
-		final byte[] remainPeerId = new byte[18];
-		LOGGER.info("Adding 18 Random bytes" );
-		new Random().nextBytes(remainPeerId);
-		System.arraycopy(remainPeerId, 0, peerId, 2, remainPeerId.length);
+		//final byte[] remainPeerId = new byte[18];
+		LOGGER.info("Generating peerId" );
+		new Random().nextBytes(peerId);
+		//System.arraycopy(remainPeerId, 0, peerId, 2, remainPeerId.length);
 		return peerId;
 	}
 /*private int getDownloaded() 
