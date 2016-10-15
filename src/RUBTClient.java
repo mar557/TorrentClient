@@ -1,19 +1,26 @@
 import java.io.File;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,26 +47,8 @@ public class RUBTClient extends Thread
 	 * Logger for the local client.
 	 */
 	private final static Logger LOGGER = Logger.getLogger(RUBTClient.class.getName());
-	
 
-/*private final TorrentInfo tInfo;
-
-private final int totalPieces;
-
-private final int fileLength;
-
-private final int pieceLength;
-
-private int port = 6881;
-
-
-private final int downloaded;
-
-private final int uploaded;
-
-private final int left;*/
-
-	public static void main(String[] args) throws URISyntaxException, IOException, BencodingException 
+e	public static void main(String[] args) 
 	{
 		//Set level of logger to INFO or higher
 		LOGGER.setLevel(Level.INFO);
@@ -83,15 +72,14 @@ private final int left;*/
 		byte[] metaBytes = null;
 		try 
 		{
-			LOGGER.info("Opening torrent file");
+			LOGGER.info("Opening torrent file...");
 			File metaFile = new File(args[0]);
 			DataInputStream metaFileIn = new DataInputStream(new FileInputStream(metaFile));
 			metaBytes = new byte[(int)metaFile.length()];
-			metaFileIn.readFully(metaBytes);
 			LOGGER.info("Reading torrent file");
+			metaFileIn.readFully(metaBytes);
 			metaFileIn.close();
 			LOGGER.info("Closing torrent file");
-
 		} 
 		catch (FileNotFoundException fnfEx) 
 		{
@@ -117,133 +105,108 @@ private final int left;*/
 		{
 			LOGGER.info("Decoding file...");
 			tInfo = new TorrentInfo(metaBytes);
+			
+			getListOfPeersHttpUrl(tInfo.announce_url);
+
 		} 
 		catch (BencodingException be) 
 		{
 			LOGGER.log(Level.WARNING, "Bencoding exception", be);
-		}	
-			LOGGER.info("Getting list of peers...");
-			//try {
-				//generatePeerId();
-				ArrayList<Peer> peers = getListOfPeersHttpUrl(tInfo);
-			/*} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (BencodingException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			*/
+		} catch (IOException e) 
+		{
+			e.printStackTrace();
+		}
 	}
-	
-	private static ArrayList<Peer> getListOfPeersHttpUrl(TorrentInfo tInfo) throws IOException, BencodingException, URISyntaxException
+	private static URL makeKey(TorrentInfo ti) throws URISyntaxException, MalformedURLException 
 	{
-
-		byte[] peerId=null, trackerResponse; 
-		ByteBuffer bytebuffer;
-		int port = 0, i; 
-		String ip="", stringid, key;
-		
-		trackerResponse = getRequest(tInfo);
-		
-		@SuppressWarnings("unchecked") //decoding Tracker response
-		HashMap<ByteBuffer, Object> response = (HashMap<ByteBuffer, Object>)Bencoder2.decode(trackerResponse);
-		
-		
-		//More plagarized code below
-		ArrayList<Peer> p = new ArrayList<Peer>();
-		
-		//extracting  interval
-		int interval = (Integer)response.get(ByteBuffer.wrap(new byte[] {'i', 'n', 't', 'e', 'r', 'v', 'a', 'l' }));
-		System.out.println(interval);
-		
-		@SuppressWarnings("unchecked")
-		List<Map<ByteBuffer, Object>> objectList = (List<Map<ByteBuffer, Object>>) response.get( ByteBuffer.wrap(new byte[] {'p', 'e', 'e', 'r', 's' }));
-		for (Map<ByteBuffer, Object> object : objectList) {
-			System.out.println("NEW PEER");
-			for( i = 0; i < object.size(); ++ i){
-				bytebuffer = (ByteBuffer)object.keySet().toArray()[i];		
-				key = get_string(bytebuffer);
-				if(key.equals("port"))
-					port = (Integer)object.get(bytebuffer);
-				else if(key.equals("ip")) 
-					ip = new String(((ByteBuffer) object.get(bytebuffer)).array());
-				else 
-					peerId = ((ByteBuffer)object.get(bytebuffer)).array();
-			}
-			p.add(new Peer(peerId, port, ip));
-			stringid = new String(peerId);
-			System.out.println("PeerId -> " + stringid);
-			System.out.println("Port -> "+ port);
-	        System.out.println("IP-> " + ip);
-		}
-		return p;
-	}
-	private static ArrayList<Peer> getRUPeer(ArrayList<Peer> peerlist) {
-		ArrayList<Peer> RUPeer = new ArrayList<Peer>();
-		String peerIdString;
-		for (Peer p: peerlist){
-			peerIdString = p.getStringPeerId();
-			if(peerIdString.charAt(0)=='R' && peerIdString.charAt(1)=='U')
-				RUPeer.add(p);
-		}
-		return RUPeer;		
-	}
-
-	public static byte[] getRequest(TorrentInfo tInfo) throws IOException, URISyntaxException {
-		byte[] response;
-		int contentLength; 
-		URL key = makeKey(tInfo);
-		HttpURLConnection connection = (HttpURLConnection)key.openConnection();
-		connection.setRequestMethod("GET");
-		//notetoself: change variable names to avoid plagarism
-		DataInputStream dis = new DataInputStream(connection.getInputStream());
-		contentLength =connection.getContentLength(); //variable changed here
-		response = new byte[contentLength];
-		dis.readFully(response); // Tracker returns object here
-		return response;
-	}
-	
-	public static String get_string(ByteBuffer b){ 
-		String s = new String(b.array());
-		return s;
-	}
-		
-	private static URL makeKey(TorrentInfo ti) throws URISyntaxException, MalformedURLException {
 		byte[] hash = ti.info_hash.array();
 		URI uri = ti.announce_url.toURI();
-		String stringKey = uri.getPath() + "?info_hash=";
+		String stringKey = uri.getPath() + "%3Finfo_hash%3D";
 		for(byte b : hash)
 			stringKey = stringKey + "%" + String.format("%02X", b);
-		stringKey = stringKey + "&peer_id=" + generatePeerId() + "&port=6881&uploaded=0&downloaded=0&left=" + ti.file_length + "&event=started";
+		stringKey = stringKey + "%26peer_id%3D" + makePeerID();
 	    URI newUri = uri.resolve(stringKey);
 	    return newUri.toURL();
 	}
-	
+	    
+	//public void getRequest() 
+		//String key, line, stringResponse;
+
+	private static String makePeerID() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	private static Object getListOfPeersHttpUrl(URL trackerURL) throws IOException, BencodingException
+	{
+		LOGGER.info("Getting list of Peers");
+		byte[] byteResponse;
+		String line, stringResponse;
+		StringBuffer response = null;
+		HttpURLConnection connection = (HttpURLConnection)trackerURL.openConnection();
+		connection.setRequestMethod("GET");
+		BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+		while((line = reader.readLine()) != null)
+			response.append(line);
+		reader.close();
+		stringResponse = response.toString();
+		byteResponse = stringResponse.getBytes();
+		Object peerList = Bencoder2.decode(byteResponse);
+		return peerList;
+	}
 	private static byte[] generatePeerId() 
 	{
 		final byte[] peerId = new byte[20];
-		LOGGER.info("Adding RU to ID" );
-		peerId[0] = 'R';
-		peerId[1] = 'U';
+		//LOGGER.info("Adding RU to ID" );
+		//peerId[0] = 'R';
+		//peerId[1] = 'U';
 		
-		final byte[] remainPeerId = new byte[18];
-		LOGGER.info("Adding 18 Random bytes" );
-		new Random().nextBytes(remainPeerId);
-		System.arraycopy(remainPeerId, 0, peerId, 2, remainPeerId.length);
+		//final byte[] remainPeerId = new byte[18];
+		LOGGER.info("Generating 20 Random bytes");
+		new Random().nextBytes(peerId);
+		//System.arraycopy(remainPeerId, 0, peerId, 2, remainPeerId.length);
 		return peerId;
 	}
-/*private int getDownloaded() 
-{
-	return this.downloaded;
+	byte[] byteResponse;
+	String line, stringResponse;
+	StringBuffer response = null;
+	URL key = makeKey(tInfo);
+	HttpURLConnection connection = (HttpURLConnection)key.openConnection();
+	connection.setRequestMethod("GET");
+	DataInputStream dis = new DataInputStream(connection.getInputStream());
+	//notetoself: change variable names to avoid plagarism
+	int dataSize =connection.getContentLength();
+	byte[] retArray = new byte[dataSize];
+	dis.readFully(retArray);                             
+	
+	/*while((line = reader.readLine()) != null)
+		response.append(line);
+	reader.close();
+	stringResponse = response.toString();
+	byteResponse = stringResponse.getBytes();*/
+	@SuppressWarnings("unchecked")
+	//Map<ByteBuffer, Object> peerList = (Map<ByteBuffer,Object>) Bencoder2.decode(retArray);
+	Object peerList = Bencoder2.decode(retArray);          
+	System.out.println(peerList.toString());                                                                                       //The Code works up to here!
+	ArrayList<Peer> peers = new ArrayList<Peer>();                      //Not sure how to extract peer IP addresses
+
+	this.interval = (Integer)response.get(KEY_INTERVAL);
+
+	List<Map<ByteBuffer, Object>> peersList = (List<Map<ByteBuffer, Object>>) response.get(KEY_PEERS);
 }
 
-synchronized void addDownloaded(int downloaded) {
-	LOGGER.info("Amount downloaded = " + this.downloaded);
-	this.downloaded += downloaded;		
+private static URL makeKey(TorrentInfo ti) throws URISyntaxException, MalformedURLException {
+	byte[] hash = ti.info_hash.array();
+	URI uri = ti.announce_url.toURI();
+	String stringKey = uri.getPath() + "?info_hash=";
+	for(byte b : hash)
+		stringKey = stringKey + "%" + String.format("%02X", b);
+	stringKey = stringKey + "&peer_id=" + generatePeerId() + "&port=6881&uploaded=0&downloaded=0&left=" + ti.file_length + "&event=started";
+    URI newUri = uri.resolve(stringKey);
+    return newUri.toURL();
 }
 
-private static void peerHandshake() {
+This I worked on but never ran:
+/*private static void peerHandshake() {
 	BufferedReader br = new BufferedReader(new InputStreamReader(TCPSocket.getInputStream()));
 	byte[] reserved = new byte[8];
 	DataOutputStream os = new DataOutputStream(TCPSocket.getOutputStream());	
@@ -261,4 +224,6 @@ private static void peerHandshake() {
 	out.writeInt( 2 );
 	peerResponse = br.readLine();
 }*/
+	
 }
+
