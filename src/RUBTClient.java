@@ -233,7 +233,7 @@ private final int left;*/
 		//System.arraycopy(remainPeerId, 0, peerId, 2, remainPeerId.length);
 		return peerId;
 	}
-/*private int getDownloaded() 
+/*aprivate int getDownloaded() 
 {
 	return this.downloaded;
 }
