@@ -29,7 +29,7 @@ import GivenTools.TorrentInfo;
  * 
  * 
  * 
- * @author Michael Reid
+ * @author M ichael Reid
  * @author Stacey Mui
  *
  */
